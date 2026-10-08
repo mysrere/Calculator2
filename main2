@@ -1,0 +1,115 @@
+#!/bin/bash
+
+operation=""
+numbers=""
+log_file=""
+
+usage() {
+    echo "Использование: $0 -o <операция> -n \"<числа>\" -l <log_file>"
+    echo "Операции: sum, sub, mul, div, pow"
+}
+
+log_error() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): $1" >> "$log_file"
+    echo "Ошибка: $1" >&2
+}
+
+while getopts "o:n:l:" opt; do
+    case "$opt" in
+        o)
+            operation="$OPTARG"
+            ;;
+        n)
+            numbers="$OPTARG"
+            ;;
+        l)
+            log_file="$OPTARG"
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$operation" ] || [ -z "$numbers" ] || [ -z "$log_file" ]; then
+    echo "Ошибка: необходимо указать -o, -n и -l" >&2
+    usage
+    exit 1
+fi
+
+if ! [[ "$operation" =~ ^(sum|sub|mul|div|pow)$ ]]; then
+    log_error "Неизвестная операция: $operation"
+    exit 1
+fi
+
+read -ra nums <<< "$numbers"
+
+for num in "${nums[@]}"; do
+    if ! [[ "$num" =~ ^-?[0-9]+$ ]]; then
+        log_error "Некорректное число: $num"
+        exit 1
+    fi
+done
+
+if [[ "$operation" == "pow" ]]; then
+    if [ "${#nums[@]}" -ne 1 ]; then
+        log_error "Для операции pow необходимо указать одно число"
+        exit 1
+    fi
+else
+    if [ "${#nums[@]}" -lt 2 ]; then
+        log_error "Для операции $operation необходимо минимум два числа"
+        exit 1
+    fi
+fi
+
+calculate() {
+    case "$operation" in
+
+        sum)
+            result=0
+
+            for num in "${nums[@]}"; do
+                result=$((result + num))
+            done
+            ;;
+
+        sub)
+            result=${nums[0]}
+
+            for ((i=1; i<${#nums[@]}; i++)); do
+                result=$((result - nums[i]))
+            done
+            ;;
+
+        mul)
+            result=1
+
+            for num in "${nums[@]}"; do
+                result=$((result * num))
+            done
+            ;;
+
+        div)
+            result=${nums[0]}
+
+            for ((i=1; i<${#nums[@]}; i++)); do
+                if [ "${nums[i]}" -eq 0 ]; then
+                    log_error "Деление на ноль"
+                    exit 1
+                fi
+
+                result=$((result / nums[i]))
+            done
+            ;;
+
+        pow)
+            result=$((nums[0] ** 2))
+            ;;
+    esac
+
+    echo "Результат: $result"
+}
+
+calculate
